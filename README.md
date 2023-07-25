@@ -34,7 +34,7 @@ cd ../..
  - TAPT: `bash bin/run_exp_iemocap_baseline.sh Dataset/IEMOCAP/Audio_16k/ Dataset/IEMOCAP/labels_sess/label_{SESSION_TO_TEST}.json OUTPUT_DIR GPU_ID TAPT NUM_EXPS`
  - V-FT: `bash bin/run_exp_iemocap_vft.sh Dataset/IEMOCAP/Audio_16k/ Dataset/IEMOCAP/labels_sess/label_{SESSION_TO_TEST}.json OUTPUT_DIR GPU_ID V-FT NUM_EXPS`
 
-The OUTPUT_DIR should not be exist and different for each method, note that it will take a long time since we need to run NUM_EXPS and average. The statistics will be at `OUTPUT_DIR/{METHOD}.log` along with some model checkpoints. Note that it takes a long time and lots of VRAM, if you are concerned at computation, try lower the batch size (but the results may not be as expected).
+The OUTPUT_DIR should not be exist and different for each method, note that it will take a long time since we need to run NUM_EXPS and average. The statistics will be at `OUTPUT_DIR/{METHOD}.log` along with some model checkpoints. Note that it takes a long time and lots of VRAM, if you are concerned at computation, try lower the batch size (but the results may not be as expected). num_exps is the number of runs to average, default to 5(for robustness of the model for data intialization).
 
 ## Run the training scripts on your own dataset
 You will need a directory containing all the training wave files sampled at 16kHz, and a json file which contains the emotion label, and the *training/validation/testing* splits in the following format:
@@ -57,6 +57,7 @@ You will need a directory containing all the training wave files sampled at 16kH
     }
 }
 ```
+ - If only one json file then cross validation wont be done. For nfold crossvalidation n json files are needed. 
  - If the Test has zero elements `"Test: {}"`, no testing will be performed, same rule holds for validation.
  - Put all your dataset in the following structure, we will be mounting this directory to the container.
 
@@ -103,6 +104,7 @@ python run_downstream_custom_multiple_fold.py --precision 16 \
 ```
  - `--pretrained_path`: The model path from the output of previous `run_baseline_continueFT.py`
 
+### P-TAPT
 ### Train the first phase wav2vec
 ```
 python run_pretrain.py --datadir Audio_Dir \
