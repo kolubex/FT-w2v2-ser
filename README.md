@@ -28,8 +28,6 @@ python gen_meta_label.py IEMOCAP_DIR &&
 python generate_labels_sessionwise.py &&
 cd ../..
 ```
-hi
-
 ### Run scripts
  - P-TAPT: `bash bin/run_exp_iemocap.sh Dataset/IEMOCAP/Audio_16k/ Dataset/IEMOCAP/labels_sess/label_{SESSION_TO_TEST}.json OUTPUT_DIR GPU_ID P-TAPT NUM_EXPS WAV2VEC_CKPT_PATH`
  - TAPT: `bash bin/run_exp_iemocap_baseline.sh Dataset/IEMOCAP/Audio_16k/ Dataset/IEMOCAP/labels_sess/label_{SESSION_TO_TEST}.json OUTPUT_DIR GPU_ID TAPT NUM_EXPS`
