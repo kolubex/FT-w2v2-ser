@@ -1,0 +1,14 @@
+{
+    "Train": {
+        "audio1.wav" : "angry",
+        "audio2.wav" : "angry",
+        "audio3.wav" : "angry",
+        "audio4.wav" : "angry"
+    },
+    "Val":{
+        "audio1.wav" : "angry"
+    },
+    "Test":{
+        "audio1.wav" : "angry"
+    }
+}

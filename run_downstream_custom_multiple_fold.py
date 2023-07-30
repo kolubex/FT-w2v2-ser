@@ -7,7 +7,7 @@ from utils.outputlib import WriteConfusionSeaborn
 import torch
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--batch_size', type=int, default=64)
+parser.add_argument('--batch_size', type=int, default=1)
 parser.add_argument('--lr', type=float, default=1e-4)
 parser.add_argument('--max_epochs', type=int, default=15)
 parser.add_argument('--maxseqlen', type=float, default=10)
@@ -54,20 +54,20 @@ for exp in range(args.num_exps):
 
         trainer = Trainer(
             precision=args.precision,
-            amp_backend='native',
+            # amp_backend='native',
             callbacks=[checkpoint_callback] if hasattr(model, 'valid_met') else None,
-            checkpoint_callback=hasattr(model, 'valid_met'),
-            resume_from_checkpoint=None,
+            # checkpoint_callback=hasattr(model, 'valid_met'),
+            # resume_from_checkpoint=None,
             check_val_every_n_epoch=1,
             max_epochs=hparams.max_epochs,
             num_sanity_val_steps=2 if hasattr(model, 'valid_met') else 0,
-            gpus=1,
+            # gpus=1,
             logger=False
         )
         trainer.fit(model)
 
         if hasattr(model, 'valid_met'):
-            trainer.test()
+            trainer.test(model)
         else:
             trainer.test(model)
         met = model.test_met

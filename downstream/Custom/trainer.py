@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from pytorch_lightning.core.lightning import LightningModule
+from pytorch_lightning.core import LightningModule
 import pytorch_lightning as pl
 
 from .dataloader import CustomEmoDataset

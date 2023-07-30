@@ -7,7 +7,7 @@ from torch.utils import data
 from modules.FeatureFuser import Wav2vecWrapper, Wav2vec2Wrapper, Wav2vec2PretrainWrapper
 from modules.NN import LinearHead, RNNLayer
 from utils.metrics import ConfusionMetrics
-import pytorch_lightning.core.lightning as pl
+import pytorch_lightning.core as pl
 
 class PretrainedEmoClassifier(pl.LightningModule):
     def __init__(self, maxstep, batch_size, lr, datadir, labeldir, modelpath, labeling_method, valid_split):
@@ -22,7 +22,9 @@ class PretrainedEmoClassifier(pl.LightningModule):
         self.rnn = RNNLayer(512, 512)
         numtraining = int(len(self.data) * valid_split)
         splits = [numtraining, len(self.data) - numtraining]
-        self.traindata, self.valdata = data.random_split(self.data, splits, generator=torch.Generator().manual_seed(58))
+        # self.traindata, self.valdata = data.random_split(self.data, splits, generator=torch.Generator().manual_seed(58))
+        self.traindata = self.data
+        self.valdata = self.data
         counter = self.data.emos
         weights = torch.tensor(
             [counter[c] for c in self.data.emoset]
@@ -43,7 +45,7 @@ class PretrainedEmoClassifier(pl.LightningModule):
     def train_dataloader(self):
         return data.DataLoader(self.traindata,
                                batch_size=self.batch_size,
-                               num_workers=8,
+                               num_workers=4,
                                drop_last=True,
                                shuffle=True,
                                collate_fn=self.data.truncCollate)
@@ -51,7 +53,7 @@ class PretrainedEmoClassifier(pl.LightningModule):
     def val_dataloader(self):
         return data.DataLoader(self.valdata,
                                batch_size=self.batch_size,
-                               num_workers=8,
+                               num_workers=4,
                                drop_last=False,
                                shuffle=False,
                                collate_fn=self.data.truncCollate)
@@ -166,12 +168,12 @@ class SecondPassEmoClassifier(pl.LightningModule):
                       self.batch_size, drop_last=True
                   )
         return data.DataLoader(self.traindata,
-                               num_workers=8,
+                               num_workers=4,
                                batch_sampler=sampler,
                                collate_fn=self.data.seqCollate)
 
     def val_dataloader(self):
-        return None
+        # return None
         idxs = self.valdata.indices
         if self.use_bucket_sampler:
             length = [self.data.lengths[i] for i in idxs]
@@ -184,7 +186,7 @@ class SecondPassEmoClassifier(pl.LightningModule):
                       self.batch_size, drop_last=False
                   )
         return data.DataLoader(self.valdata,
-                               num_workers=8,
+                               num_workers=4,
                                batch_sampler=sampler,
                                collate_fn=self.data.seqCollate)
 
@@ -310,12 +312,12 @@ class ContinueFinetuningBaseline(pl.LightningModule):
                       self.batch_size, drop_last=True
                   )
         return data.DataLoader(self.traindata,
-                               num_workers=8,
+                               num_workers=4,
                                batch_sampler=sampler,
                                collate_fn=self.data.seqCollate)
 
     def val_dataloader(self):
-        return None
+        # return None
         idxs = self.valdata.indices
         if self.use_bucket_sampler:
             length = [self.data.lengths[i] for i in idxs]
@@ -328,7 +330,7 @@ class ContinueFinetuningBaseline(pl.LightningModule):
                       self.batch_size, drop_last=False
                   )
         return data.DataLoader(self.valdata,
-                               num_workers=8,
+                               num_workers=4,
                                batch_sampler=sampler,
                                collate_fn=self.data.seqCollate)
 

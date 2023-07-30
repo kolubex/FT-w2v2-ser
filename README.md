@@ -2,6 +2,10 @@
 Official implementation for the paper [Exploring Wav2vec 2.0 fine-tuning for improved speech emotion recognition](http://arxiv.org/abs/2110.06309).
 Submitted to ICASSP 2022.
 
+### COMMAND TO USE TO RUN P-TAPT FOR SINGLE-LABEL CLASSIFICATION
+``` 
+bash bin/run_exp_iemocap.sh test_exp label.json output_test_exp 0 P-TAPT 1 ./downloaded_models/wav2vec_large.pt
+```
 ## Libraries and dependencies
  - [pytorch](https://github.com/pytorch/pytorch)
  - [pytorch-lightning](https://github.com/PyTorchLightning/pytorch-lightning)

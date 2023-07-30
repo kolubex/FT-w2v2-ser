@@ -6,7 +6,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--saving_path', type=str, default='pretrain/checkpoints_second')
 parser.add_argument('--lr', type=float, default=1e-4)
-parser.add_argument('--batch_size', type=int, default=64)
+parser.add_argument('--batch_size', type=int, default=1)
 parser.add_argument('--dynamic_batch', action='store_true')
 parser.add_argument('--training_step', type=int, default=120000)
 parser.add_argument('--warmup_step', type=int, default=4000)
@@ -43,14 +43,15 @@ checkpoint_callback = ModelCheckpoint(
 )
 wrapper = Trainer(
     precision=args.precision,
-    amp_backend='native',
+    # amp_backend='native',
     callbacks=[checkpoint_callback],
-    resume_from_checkpoint=args.resume_checkpoint,
+    # resume_from_checkpoint=args.resume_checkpoint,
     check_val_every_n_epoch=args.check_val_every_n_epoch,
     max_steps=args.training_step,
-    gpus=(-1 if args.distributed else 1),
-    accelerator=(args.accelerator if args.distributed else None),
-    replace_sampler_ddp=False,
+    # gpus=(-1 if args.distributed else 1),
+    # accelerator=(args.accelerator if args.distributed else None),
+    accelerator='cuda',
+    # replace_sampler_ddp=False,
     logger=False
 )
 if args.w2v2_pretrain_path is None:

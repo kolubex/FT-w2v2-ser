@@ -79,7 +79,7 @@ head = 0
 _data = MixedDataset(args.datadir, args.unsupdatadir, args.labelpath)
 kmeans_dataloader = data.DataLoader(_data,
                              batch_size=1,
-                             num_workers=8,
+                             num_workers=4,
                              shuffle=True)
 for batch in tqdm(kmeans_dataloader):
     name = batch[1][0]
@@ -113,7 +113,7 @@ for nclus in nclusters:
 print ("Start second phase inference of pseudo-labels")
 dataloader = data.DataLoader(_data,
                              batch_size=1,
-                             num_workers=8,
+                             num_workers=4,
                              drop_last=False,
                              shuffle=False)
 combined_dict = dict()

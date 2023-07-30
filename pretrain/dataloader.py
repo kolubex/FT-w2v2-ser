@@ -37,6 +37,7 @@ class PretrainEmoDataset(data.Dataset):
         for k, v in self.emos.items():
             print (f'{k}: {v} examples')
         l = len(self.dataset)
+        print(self.datasetbase)
         print (f'Total {l} examples')
         print ('----Examples Involved----')
 

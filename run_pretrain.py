@@ -4,9 +4,9 @@ from pretrain.trainer import PretrainedEmoClassifier
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--saving_path', type=str, default='pretrain/checkpoints')
+parser.add_argument('--saving_path', type=str, default='output_test_exp')
 parser.add_argument('--lr', type=float, default=1e-4)
-parser.add_argument('--batch_size', type=int, default=64)
+parser.add_argument('--batch_size', type=int, default=1)
 parser.add_argument('--precision', type=int, choices=[16, 32], default=32)
 parser.add_argument('--training_step', type=int, default=300000)
 parser.add_argument('--save_top_k', type=int, default=1)
@@ -31,12 +31,12 @@ checkpoint_callback = ModelCheckpoint(
 )
 wrapper = Trainer(
     precision=args.precision,
-    amp_backend='native',
+    # amp_backend='native',
     callbacks=[checkpoint_callback],
-    resume_from_checkpoint=args.resume_checkpoint,
+    # resume_from_checkpoint=args.resume_checkpoint,
     check_val_every_n_epoch=args.check_val_every_n_epoch,
     max_steps=args.training_step,
-    gpus=1,
+    # gpus=1,
     logger=False
 )
 model = PretrainedEmoClassifier(maxstep=args.training_step,
