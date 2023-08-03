@@ -6,6 +6,7 @@ Submitted to ICASSP 2022.
 ``` 
 bash bin/run_exp_iemocap.sh test_exp label.json output_test_exp 0 P-TAPT 1 ./downloaded_models/wav2vec_large.pt
 ```
+- Before running this command you should have wav2vec_large.pt in downloaded_models folder. You can download it from [here](https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec_large.pt)
 ## Libraries and dependencies
  - [pytorch](https://github.com/pytorch/pytorch)
  - [pytorch-lightning](https://github.com/PyTorchLightning/pytorch-lightning)
