@@ -9,7 +9,7 @@ import torch
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', type=int, default=1)
 parser.add_argument('--lr', type=float, default=1e-4)
-parser.add_argument('--max_epochs', type=int, default=15)
+parser.add_argument('--max_epochs', type=int, default=1)
 parser.add_argument('--maxseqlen', type=float, default=10)
 parser.add_argument('--nworkers', type=int, default=4)
 parser.add_argument('--precision', type=int, choices=[16, 32], default=32)

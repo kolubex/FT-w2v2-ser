@@ -51,12 +51,19 @@ class PretrainEmoDataset(data.Dataset):
         if type(_label) == str:
             _label = { _label: 1.0 }
         #turn into multi-class vector
-        p = multilabel2vec(_label, self.labeldict)
-        #random sample a label according to the label distribution
-        if self.labeling_method == 'hard':
-            label = np.argmax(p)
-        elif self.labeling_method == 'soft':
-            label = np.random.choice(len(self.emoset), p=p)
+        # p = multilabel2vec(_label, self.labeldict)
+        # #random sample a label according to the label distribution
+        # if self.labeling_method == 'hard':
+        #     label = np.argmax(p)
+        # elif self.labeling_method == 'soft':
+        #     label = np.random.choice(len(self.emoset), p=p)
+        # if not self.returnname:
+        #     return wav.astype(np.float32), label
+        # return wav.astype(np.float32), label, self.datasetbase[i]
+        label = np.zeros(self.nemos, dtype=np.float32)
+        for emotion, value in _label.items():
+            label[self.labeldict[emotion]] = value
+
         if not self.returnname:
             return wav.astype(np.float32), label
         return wav.astype(np.float32), label, self.datasetbase[i]
@@ -93,21 +100,21 @@ class PretrainEmoDataset(data.Dataset):
         batch = list(map(trunc, batch))
         return default_collate(batch)
 
-class UnlabeledDataset(data.Dataset):
-    def __init__(self, datadir, returnname=False):
-        self.datasetbase = [str(x)[len(datadir)+1:] for x in Path(datadir).rglob('*.wav')]
-        self.dataset = [os.path.join(datadir, x) for x in self.datasetbase]
-        self.returnname = returnname
+# class UnlabeledDataset(data.Dataset):
+    # def __init__(self, datadir, returnname=False):
+    #     self.datasetbase = [str(x)[len(datadir)+1:] for x in Path(datadir).rglob('*.wav')]
+    #     self.dataset = [os.path.join(datadir, x) for x in self.datasetbase]
+    #     self.returnname = returnname
 
-    def __len__(self):
-        return len(self.dataset)
+    # def __len__(self):
+    #     return len(self.dataset)
 
-    def __getitem__(self, i):
-        dataname = self.dataset[i]
-        wav, _sr = sf.read(dataname)
-        if not self.returnname:
-            return wav.astype(np.float32)
-        return wav.astype(np.float32), self.datasetbase[i]
+    # def __getitem__(self, i):
+    #     dataname = self.dataset[i]
+    #     wav, _sr = sf.read(dataname)
+    #     if not self.returnname:
+    #         return wav.astype(np.float32)
+    #     return wav.astype(np.float32), self.datasetbase[i]
 
 class MixedDataset(data.Dataset):
     def __init__(self, datadir, unsupdatadir, labelpath=None):

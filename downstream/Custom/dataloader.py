@@ -13,8 +13,14 @@ class CustomEmoDataset:
         self.maxseqlen = maxseqlen * 16000 #Assume sample rate of 16000
         with open(labeldir, 'r') as f:
             self.label = json.load(f) #{split: {wavname: emotion_label}}
-        self.emoset = list(set([emo for split in self.label.values() for emo in split.values()]))
-        self.emoset = list(sorted(self.emoset))
+        # self.emoset = list(set([emo for split in self.label.values() for emo in split.values()]))
+        # self.emoset = list(sorted(self.emoset))
+        if type(list(self.label['Train'].values())[0]) == str:
+            print (list(self.label['Train'].values())[0])
+            self.emos = Counter([emo for emo in self.label['Train'].values()])
+        else:
+            self.emos = Counter([k for sparse_emo in self.label['Train'].values() for k in sparse_emo.keys()])
+        self.emoset = list(self.emos.keys())
         self.nemos = len(self.emoset)
         self.train_dataset = _CustomEmoDataset(datadir, self.label['Train'], self.emoset, 'training')
         if self.label['Val']:
@@ -47,8 +53,9 @@ class _CustomEmoDataset(data.Dataset):
         self.maxseqlen = maxseqlen * 16000 #Assume sample rate of 16000
         self.split = split
         self.label = label #{wavname: emotion_label}
-        self.emos = Counter([self.label[n] for n in self.label.keys()])
+        self.emos = Counter([ x for list_labels in self.label.values() for x in list_labels])
         self.emoset = emoset
+        self.nemos = len(self.emoset)
         self.labeldict = {k: i for i, k in enumerate(self.emoset)}
         self.datasetbase = list(self.label.keys())
         self.dataset = [os.path.join(datadir, x) for x in self.datasetbase]
@@ -69,5 +76,7 @@ class _CustomEmoDataset(data.Dataset):
         dataname = self.dataset[i]
         wav, _sr = sf.read(dataname)
         _label = self.label[self.datasetbase[i]]
-        label = self.labeldict[_label]
-        return wav.astype(np.float32), label
+        label = np.zeros(self.nemos, dtype=np.float32)
+        for emotion, value in _label.items():
+            label[self.labeldict[emotion]] = value
+        return wav.astype(np.float32), label,self.datasetbase[i]

@@ -72,8 +72,18 @@ class ConfusionMetrics:
 
     @property
     def microF1(self):
-        p = self.precision.mean()
-        r = self.recall.mean()
-        if p + r == 0:
+        # p = self.precision.mean()
+        # r = self.recall.mean()
+        # if p + r == 0:
+        #     return 0.
+        # return 2 * p * r / (p + r)
+        tp = np.diag(self.m)
+        fp = self.m.sum(axis=0) - tp
+        fn = self.m.sum(axis=1) - tp
+        p = tp / (tp + fp)
+        r = tp / (tp + fn)
+        p_mean = np.nanmean(p)
+        r_mean = np.nanmean(r)
+        if p_mean + r_mean == 0:
             return 0.
-        return 2 * p * r / (p + r)
+        return 2 * p_mean * r_mean / (p_mean + r_mean)

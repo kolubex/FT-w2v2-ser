@@ -9,6 +9,7 @@ from modules.NN import LinearHead, RNNLayer
 from utils.metrics import ConfusionMetrics
 import pytorch_lightning.core as pl
 
+
 class PretrainedEmoClassifier(pl.LightningModule):
     def __init__(self, maxstep, batch_size, lr, datadir, labeldir, modelpath, labeling_method, valid_split):
         super().__init__()
@@ -16,15 +17,16 @@ class PretrainedEmoClassifier(pl.LightningModule):
         self.batch_size = batch_size
         self.lr = lr
         self.wav2vec = Wav2vecWrapper(modelpath)
-        self.data = PretrainEmoDataset(datadir, labeldir, labeling_method=labeling_method)
+        self.data = PretrainEmoDataset(
+            datadir, labeldir, labeling_method=labeling_method)
         self.linearhead = LinearHead(512, 128, self.data.nemos)
         self.linearhead_rnn = LinearHead(512, 128, self.data.nemos)
         self.rnn = RNNLayer(512, 512)
         numtraining = int(len(self.data) * valid_split)
         splits = [numtraining, len(self.data) - numtraining]
-        # self.traindata, self.valdata = data.random_split(self.data, splits, generator=torch.Generator().manual_seed(58))
-        self.traindata = self.data
-        self.valdata = self.data
+        self.traindata, self.valdata = data.random_split(self.data, splits, generator=torch.Generator().manual_seed(58))
+        # self.traindata = self.data
+        # self.valdata = self.data
         counter = self.data.emos
         weights = torch.tensor(
             [counter[c] for c in self.data.emoset]
@@ -34,12 +36,14 @@ class PretrainedEmoClassifier(pl.LightningModule):
         print(
             f"Weigh losses by prior distribution of each class: {weights}."
         )
-        self.criterion = nn.CrossEntropyLoss(weight=weights)
+        # self.criterion = nn.CrossEntropyLoss(weight=weights)
+        self.criterion = nn.BCEWithLogitsLoss()
 
     def forward(self, x):
         reps = self.wav2vec(x)
         logits_reduced = self.linearhead_rnn(self.rnn(reps))
         logits = self.linearhead(reps)
+        # print("Logits SHAPE",reps.shape, logits_reduced.shape)
         return logits, logits_reduced
 
     def train_dataloader(self):
@@ -60,19 +64,22 @@ class PretrainedEmoClassifier(pl.LightningModule):
 
     def configure_optimizers(self):
         parameters = list(self.linearhead.parameters()) + list(self.wav2vec.trainable_params()) + \
-                     list(self.rnn.parameters()) + list(self.linearhead_rnn.parameters())
+            list(self.rnn.parameters()) + \
+            list(self.linearhead_rnn.parameters())
         optimizer = optim.Adam(parameters, lr=self.lr)
-        #Learning rate scheduler
+        # Learning rate scheduler
         num_training_steps = self.maxstep
         num_warmup_steps = int(0.05 * num_training_steps)
         num_flat_steps = int(0.05 * num_training_steps)
+
         def lambda_lr(current_step: int):
             if current_step < num_warmup_steps:
                 return float(current_step) / float(max(1, num_warmup_steps))
             elif current_step < (num_warmup_steps + num_flat_steps):
                 return 1.0
             return max(
-                0.0, float(num_training_steps - current_step) / float(max(1, num_training_steps - (num_warmup_steps + num_flat_steps)))
+                0.0, float(num_training_steps - current_step) / float(max(1,
+                                                                          num_training_steps - (num_warmup_steps + num_flat_steps)))
             )
         scheduler = {
             'scheduler': optim.lr_scheduler.LambdaLR(optimizer, lambda_lr),
@@ -81,31 +88,71 @@ class PretrainedEmoClassifier(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def training_step(self, batch, batch_idx):
+        # feats, label = batch
+        # pout, pout_reduced = self(feats)
+        # loss = self.criterion(pout_reduced, label)
+        # label = label.unsqueeze(1).expand(-1, pout.size(1)).reshape(-1)
+        # pout = pout.reshape(-1, pout.size(2))
+        # loss += self.criterion(pout, label)
+        # acc = (label == torch.argmax(pout, -1)).float().mean()
+        # tqdm_dict = {'loss': loss, 'acc': acc}
+        # self.log_dict(tqdm_dict, on_step=True, on_epoch=True, prog_bar=True)
+        # return loss
         feats, label = batch
         pout, pout_reduced = self(feats)
+
+        # Compute multilabel binary cross-entropy loss
         loss = self.criterion(pout_reduced, label)
-        label = label.unsqueeze(1).expand(-1, pout.size(1)).reshape(-1)
+        label = label.unsqueeze(1).expand(-1, pout.size(1),-1).reshape(-1, pout.size(2))
         pout = pout.reshape(-1, pout.size(2))
         loss += self.criterion(pout, label)
-        acc = (label == torch.argmax(pout, -1)).float().mean()
+        # print("IN TRAINING STEP pout shape", pout.shape)
+        # print("IN TRAINING STEP label shape", label.shape)
+        # Compute multilabel accuracy
+        # Threshold logits to get binary predictions
+        pred_labels = (pout > 0.5).float()
+        acc = (pred_labels == label).all(dim=1).float().mean()
+
         tqdm_dict = {'loss': loss, 'acc': acc}
         self.log_dict(tqdm_dict, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
+        # feats, label = batch
+        # pout, pout_reduced = self(feats)
+        # loss = self.criterion(pout_reduced, label)
+        # label = label.unsqueeze(1).expand(-1, pout.size(1)).reshape(-1)
+        # pout = pout.reshape(-1, pout.size(2))
+        # loss += self.criterion(pout, label)
+        # acc = (label == torch.argmax(pout, -1)).float().mean()
+        # validdict = {
+        #     'valid_loss': loss,
+        #     'valid_acc': acc
+        # }
+        # self.log_dict(validdict, on_epoch=True, logger=True)
+        # return loss
         feats, label = batch
         pout, pout_reduced = self(feats)
+
+        # Compute multilabel binary cross-entropy loss
         loss = self.criterion(pout_reduced, label)
-        label = label.unsqueeze(1).expand(-1, pout.size(1)).reshape(-1)
+        # print("shape of pout_reduced", pout.shape)
+        # print("shape of label", label.shape)
+        label = label.unsqueeze(1).expand(-1, pout.size(1),-1).reshape(-1, pout.size(2))
         pout = pout.reshape(-1, pout.size(2))
         loss += self.criterion(pout, label)
-        acc = (label == torch.argmax(pout, -1)).float().mean()
+
+        # Compute multilabel accuracy
+        pred_labels = (pout > 0.5).float()  # Threshold logits to get binary predictions
+        acc = (pred_labels == label).all(dim=1).float().mean()
+
         validdict = {
             'valid_loss': loss,
             'valid_acc': acc
         }
         self.log_dict(validdict, on_epoch=True, logger=True)
         return loss
+
 
 class MinimalClassifier(pl.LightningModule):
     def __init__(self, backend='wav2vec2', wav2vecpath=None):
@@ -121,6 +168,7 @@ class MinimalClassifier(pl.LightningModule):
     def forward(self, x, length=None):
         reps = getattr(self, self.backend)(x, length)
         return reps
+
 
 class SecondPassEmoClassifier(pl.LightningModule):
     def __init__(self, maxstep, batch_size,
@@ -139,17 +187,19 @@ class SecondPassEmoClassifier(pl.LightningModule):
         self.val_bucket_size = val_bucket_size
         self.wav2vec2 = Wav2vec2Wrapper(pretrain=True)
         self.maxseqlen = maxseqlen
-        self.linearheads = nn.ModuleList([LinearHead(768, 256, ncluster) for i, ncluster in enumerate(nclusters)])
+        self.linearheads = nn.ModuleList(
+            [LinearHead(768, 256, ncluster) for i, ncluster in enumerate(nclusters)])
         self.data = SecondPhaseEmoDataset(datadir, unsupdatadir, labeldir, maxseqlen=maxseqlen,
                                           final_length_fn=self.wav2vec2.get_feat_extract_output_lengths)
         numtraining = int(len(self.data) * valid_split)
         splits = [numtraining, len(self.data) - numtraining]
-        self.traindata, self.valdata = data.random_split(self.data, splits, generator=torch.Generator().manual_seed(58))
+        self.traindata, self.valdata = data.random_split(
+            self.data, splits, generator=torch.Generator().manual_seed(58))
         self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
 
     def forward(self, x, length):
         reps, maskidx = self.wav2vec2(x, length)
-        to_train = reps[maskidx] #L', C
+        to_train = reps[maskidx]  # L', C
         logits = []
         for lh in self.linearheads:
             logits.append(lh(to_train))
@@ -162,11 +212,11 @@ class SecondPassEmoClassifier(pl.LightningModule):
             length = [l if l < self.maxseqlen else self.maxseqlen for l in length]
         sampler = RandomBucketSampler(self.train_bucket_size, length, self.batch_size, drop_last=True, distributed=self.distributed,
                                       world_size=self.trainer.world_size, rank=self.trainer.local_rank, dynamic_batch=self.dynamic_batch) if self.use_bucket_sampler else \
-                  data.BatchSampler(
-                      StandardSampler(self.traindata, shuffle=True, distributed=self.distributed,
-                                      world_size=self.trainer.world_size, rank=self.trainer.local_rank, dynamic_batch=self.dynamic_batch),
-                      self.batch_size, drop_last=True
-                  )
+            data.BatchSampler(
+            StandardSampler(self.traindata, shuffle=True, distributed=self.distributed,
+                            world_size=self.trainer.world_size, rank=self.trainer.local_rank, dynamic_batch=self.dynamic_batch),
+            self.batch_size, drop_last=True
+        )
         return data.DataLoader(self.traindata,
                                num_workers=4,
                                batch_sampler=sampler,
@@ -180,29 +230,32 @@ class SecondPassEmoClassifier(pl.LightningModule):
             length = [l if l < self.maxseqlen else self.maxseqlen for l in length]
         sampler = RandomBucketSampler(self.val_bucket_size, length, self.batch_size, drop_last=False, distributed=self.distributed,
                                       world_size=self.trainer.world_size, rank=self.trainer.local_rank, dynamic_batch=self.dynamic_batch) if self.use_bucket_sampler else \
-                  data.BatchSampler(
-                      StandardSampler(self.valdata, shuffle=False, distributed=self.distributed,
-                                      world_size=self.trainer.world_size, rank=self.trainer.local_rank, dynamic_batch=self.dynamic_batch),
-                      self.batch_size, drop_last=False
-                  )
+            data.BatchSampler(
+            StandardSampler(self.valdata, shuffle=False, distributed=self.distributed,
+                            world_size=self.trainer.world_size, rank=self.trainer.local_rank, dynamic_batch=self.dynamic_batch),
+            self.batch_size, drop_last=False
+        )
         return data.DataLoader(self.valdata,
                                num_workers=4,
                                batch_sampler=sampler,
                                collate_fn=self.data.seqCollate)
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(list(self.linearheads.parameters()) + list(self.wav2vec2.trainable_params()), lr=self.lr)
-        #Learning rate scheduler
+        optimizer = optim.Adam(list(self.linearheads.parameters(
+        )) + list(self.wav2vec2.trainable_params()), lr=self.lr)
+        # Learning rate scheduler
         num_training_steps = self.maxstep
         num_warmup_steps = self.warmup_step
         num_flat_steps = int(0.05 * num_training_steps)
+
         def lambda_lr(current_step: int):
             if current_step < num_warmup_steps:
                 return float(current_step) / float(max(1, num_warmup_steps))
             elif current_step < (num_warmup_steps + num_flat_steps):
                 return 1.0
             return max(
-                0.0, float(num_training_steps - current_step) / float(max(1, num_training_steps - (num_warmup_steps + num_flat_steps)))
+                0.0, float(num_training_steps - current_step) / float(max(1,
+                                                                          num_training_steps - (num_warmup_steps + num_flat_steps)))
             )
         scheduler = {
             'scheduler': optim.lr_scheduler.LambdaLR(optimizer, lambda_lr),
@@ -236,8 +289,10 @@ class SecondPassEmoClassifier(pl.LightningModule):
             'valid_loss': loss,
             'valid_acc': acc
         }
-        self.log_dict(validdict, on_epoch=True, logger=True, sync_dist=self.distributed)
+        self.log_dict(validdict, on_epoch=True, logger=True,
+                      sync_dist=self.distributed)
         return loss
+
 
 class PretrainedRNNHead(pl.LightningModule):
     def __init__(self, n_classes, backend='wav2vec2', wav2vecpath=None):
@@ -262,13 +317,17 @@ class PretrainedRNNHead(pl.LightningModule):
 
     def forward(self, x, length):
         reps = getattr(self, self.backend)(x, length)
-        last_feat_pos = getattr(self, self.backend).get_feat_extract_output_lengths(length) - 1
-        logits = reps.permute(1, 0, 2) #L, B, C
-        masks = torch.arange(logits.size(0), device=logits.device).expand(last_feat_pos.size(0), -1) < last_feat_pos.unsqueeze(1)
+        last_feat_pos = getattr(
+            self, self.backend).get_feat_extract_output_lengths(length) - 1
+        logits = reps.permute(1, 0, 2)  # L, B, C
+        masks = torch.arange(logits.size(0), device=logits.device).expand(
+            last_feat_pos.size(0), -1) < last_feat_pos.unsqueeze(1)
         masks = masks.float()
-        logits = (logits * masks.T.unsqueeze(-1)).sum(0) / last_feat_pos.unsqueeze(1)
+        logits = (logits * masks.T.unsqueeze(-1)).sum(0) / \
+            last_feat_pos.unsqueeze(1)
         logits = self.linear_head(logits)
         return logits
+
 
 class ContinueFinetuningBaseline(pl.LightningModule):
     def __init__(self, maxstep, batch_size,
@@ -289,15 +348,18 @@ class ContinueFinetuningBaseline(pl.LightningModule):
         self.use_additional_obj = use_additional_obj
         self.maxseqlen = maxseqlen
         if use_additional_obj:
-            self.linearheads = nn.ModuleList([nn.Linear(self.wav2vec2.wav2vec2PT.config.proj_codevector_dim, ncluster) for i, ncluster in enumerate(nclusters)])
+            self.linearheads = nn.ModuleList([nn.Linear(
+                self.wav2vec2.wav2vec2PT.config.proj_codevector_dim, ncluster) for i, ncluster in enumerate(nclusters)])
             self.data = SecondPhaseEmoDataset(datadir, None, labelpath, maxseqlen=maxseqlen,
                                               final_length_fn=self.wav2vec2.get_feat_extract_output_lengths)
             self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
         else:
-            self.data = BaselineDataset(datadir, labelpath, maxseqlen=maxseqlen)
+            self.data = BaselineDataset(
+                datadir, labelpath, maxseqlen=maxseqlen)
         numtraining = int(len(self.data) * 1.0)
         splits = [numtraining, len(self.data) - numtraining]
-        self.traindata, self.valdata = data.random_split(self.data, splits, generator=torch.Generator().manual_seed(58))
+        self.traindata, self.valdata = data.random_split(
+            self.data, splits, generator=torch.Generator().manual_seed(58))
 
     def train_dataloader(self):
         idxs = self.traindata.indices
@@ -306,11 +368,11 @@ class ContinueFinetuningBaseline(pl.LightningModule):
             length = [l if l < self.maxseqlen else self.maxseqlen for l in length]
         sampler = RandomBucketSampler(self.train_bucket_size, length, self.batch_size, drop_last=True, distributed=self.distributed,
                                       world_size=self.trainer.world_size, rank=self.trainer.local_rank) if self.use_bucket_sampler else \
-                  data.BatchSampler(
-                      StandardSampler(self.traindata, shuffle=True, distributed=self.distributed,
-                                      world_size=self.trainer.world_size, rank=self.trainer.local_rank),
-                      self.batch_size, drop_last=True
-                  )
+            data.BatchSampler(
+            StandardSampler(self.traindata, shuffle=True, distributed=self.distributed,
+                            world_size=self.trainer.world_size, rank=self.trainer.local_rank),
+            self.batch_size, drop_last=True
+        )
         return data.DataLoader(self.traindata,
                                num_workers=4,
                                batch_sampler=sampler,
@@ -324,11 +386,11 @@ class ContinueFinetuningBaseline(pl.LightningModule):
             length = [l if l < self.maxseqlen else self.maxseqlen for l in length]
         sampler = RandomBucketSampler(self.val_bucket_size, length, self.batch_size, drop_last=True, distributed=self.distributed,
                                       world_size=self.trainer.world_size, rank=self.trainer.local_rank) if self.use_bucket_sampler else \
-                  data.BatchSampler(
-                      StandardSampler(self.valdata, shuffle=False, distributed=self.distributed,
-                                      world_size=self.trainer.world_size, rank=self.trainer.local_rank),
-                      self.batch_size, drop_last=False
-                  )
+            data.BatchSampler(
+            StandardSampler(self.valdata, shuffle=False, distributed=self.distributed,
+                            world_size=self.trainer.world_size, rank=self.trainer.local_rank),
+            self.batch_size, drop_last=False
+        )
         return data.DataLoader(self.valdata,
                                num_workers=4,
                                batch_sampler=sampler,
@@ -339,17 +401,19 @@ class ContinueFinetuningBaseline(pl.LightningModule):
         if self.use_additional_obj:
             parameters = list(parameters) + list(self.linearheads.parameters())
         optimizer = optim.Adam(parameters, lr=self.lr)
-        #Learning rate scheduler
+        # Learning rate scheduler
         num_training_steps = self.maxstep
         num_warmup_steps = self.warmup_step
         num_flat_steps = int(0.05 * num_training_steps)
+
         def lambda_lr(current_step: int):
             if current_step < num_warmup_steps:
                 return float(current_step) / float(max(1, num_warmup_steps))
             elif current_step < (num_warmup_steps + num_flat_steps):
                 return 1.0
             return max(
-                0.0, float(num_training_steps - current_step) / float(max(1, num_training_steps - (num_warmup_steps + num_flat_steps)))
+                0.0, float(num_training_steps - current_step) / float(max(1,
+                                                                          num_training_steps - (num_warmup_steps + num_flat_steps)))
             )
         scheduler = {
             'scheduler': optim.lr_scheduler.LambdaLR(optimizer, lambda_lr),
@@ -395,5 +459,6 @@ class ContinueFinetuningBaseline(pl.LightningModule):
         validdict = {
             'valid_loss': loss,
         }
-        self.log_dict(validdict, on_epoch=True, logger=True, sync_dist=self.distributed)
+        self.log_dict(validdict, on_epoch=True, logger=True,
+                      sync_dist=self.distributed)
         return loss
